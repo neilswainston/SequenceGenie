@@ -1,0 +1,2 @@
+pysam
+synbiochem-py
