@@ -70,9 +70,9 @@ def vcf_to_df(vcf_filename):
         df['DP_PROP'] = df['DP'] / df['DP'].max()
 
     if 'INDEL' not in df.columns:
-        df[['INDEL']] = False
+        df['INDEL'] = False
 
-    df[['INDEL']] = df[['INDEL']].fillna(value=False)
+    df['INDEL'] = df['INDEL'].fillna(value=False)
 
     return df, templ_len
 
