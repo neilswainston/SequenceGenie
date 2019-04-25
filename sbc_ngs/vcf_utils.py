@@ -8,7 +8,7 @@ All rights reserved.
 # pylint: disable=chained-comparison
 # pylint: disable=consider-using-dict-comprehension
 # pylint: disable=invalid-name
-
+# pylint: disable=too-many-locals
 import os
 import re
 
@@ -77,7 +77,7 @@ def vcf_to_df(vcf_filename):
     return df, templ_len
 
 
-def analyse_vcf(vcf_filename, dp_filter):
+def analyse_vcf(vcf_filename, dp_filter, qs_threshold=0.75):
     '''Analyse vcf file, returning number of matches, mutations and
     indels.'''
     num_matches = 0
@@ -112,10 +112,13 @@ def analyse_vcf(vcf_filename, dp_filter):
             else:
                 consensus_seq.append(prob_term)
 
-                if row['REF'] != prob_term:
+                if row['REF'] != prob_term and max(qs) > qs_threshold:
+                    consensus_seq.append(prob_term)
+
                     mutations.append((row['REF'] + str(row['POS']) + prob_term,
                                       max(qs)))
                 else:
+                    consensus_seq.append(row['REF'])
                     num_matches += 1
 
             depths.append(row['DP'])

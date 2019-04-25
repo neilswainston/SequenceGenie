@@ -150,7 +150,7 @@ def _bin_seqs(reads_filename, min_length, max_barcode_len, search_len,
 
 
 def _check_seq(seq, max_barcode_len, search_len, pairs,
-               tolerance, write_queue):
+               tolerance, write_queue, indiv_strand=False):
     '''Check sequence against barcode sequences.'''
     seq_len = min(max_barcode_len + search_len, len(seq))
     seq_start = list(seq.seq[:seq_len])
@@ -165,10 +165,13 @@ def _check_seq(seq, max_barcode_len, search_len, pairs,
         if selected_barcodes[0] and selected_barcodes[1]:
             write_queue.put([tuple(selected_barcodes + ['all']), seq])
 
-            if orig[0] == ''.join(bc_pair[0]):
-                write_queue.put([tuple(selected_barcodes + ['forward']), seq])
-            else:
-                write_queue.put([tuple(selected_barcodes + ['reverse']), seq])
+            if indiv_strand:
+                if orig[0] == ''.join(bc_pair[0]):
+                    write_queue.put([tuple(selected_barcodes + ['forward']),
+                                     seq])
+                else:
+                    write_queue.put([tuple(selected_barcodes + ['reverse']),
+                                     seq])
 
             return True
 

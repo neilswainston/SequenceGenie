@@ -38,7 +38,7 @@ class Test(unittest.TestCase):
         vcf_filename = os.path.join(directory, 'variants.vcf')
         _, mutations, _, _, _, _, _ = vcf_utils.analyse_vcf(vcf_filename, 0)
 
-        self.assertAlmostEqual(mutations[0][1], 0.510134, 3)
+        self.assertFalse(mutations)
 
 
 if __name__ == "__main__":
