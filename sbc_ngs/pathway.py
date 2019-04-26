@@ -138,8 +138,8 @@ def _score_barcodes_ice(templ_pcr_filename, dir_name, barcodes,
     os.remove(sam_filename)
 
     # Generate and analyse variants file:
-    vcf_filename = utils.get_vcf(bam_filename, templ_pcr_filename,
-                                 pcr_offset=0)
+    vcf_filename = vcf_utils.get_vcf(bam_filename, templ_pcr_filename,
+                                     pcr_offset=0)
 
     vcf_utils.analyse(vcf_filename, ice_id, barcodes, dp_filter, write_queue)
 

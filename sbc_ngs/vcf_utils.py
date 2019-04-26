@@ -11,13 +11,49 @@ All rights reserved.
 # pylint: disable=too-many-locals
 import os
 import re
+import subprocess
+import tempfile
 
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-
+from pysam import VariantFile
 import numpy as np
 import pandas as pd
+
+
+def get_vcf(bam_filename, templ_filename, pcr_offset=0):
+    '''Generates a vcf file.'''
+    vcf_filename = \
+        tempfile.NamedTemporaryFile('w', suffix='.vcf', delete=False).name \
+        if pcr_offset else os.path.join(os.path.dirname(bam_filename),
+                                        'variants.vcf')
+
+    prc = subprocess.Popen(['samtools',
+                            'mpileup',
+                            '-uvf',
+                            templ_filename,
+                            '-t', 'DP',
+                            '-o', vcf_filename,
+                            bam_filename])
+
+    prc.communicate()
+
+    if pcr_offset:
+        vcf_out_filename = os.path.join(os.path.dirname(bam_filename),
+                                        'variants.vcf')
+        vcf_in = VariantFile(vcf_filename)
+        vcf_out = VariantFile(vcf_out_filename, 'w', header=vcf_in.header)
+
+        for rec in vcf_in.fetch():
+            rec.pos = rec.pos + pcr_offset
+            print(rec)
+            vcf_out.write(rec)
+
+        vcf_out.close()
+        return vcf_out_filename
+
+    return vcf_filename
 
 
 def analyse(vcf_filename, target_id, src_id, dp_filter, write_queue):
