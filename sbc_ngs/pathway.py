@@ -30,8 +30,10 @@ class PathwayAligner():
     def __init__(self, out_dir, in_dir, seq_files, min_length, max_read_files,
                  dp_filter=0.25):
         # Initialise project directory:
-        self.__out_dir = os.path.join(out_dir, str(uuid.uuid4()))
-        os.makedirs(self.__out_dir)
+        self.__out_dir = out_dir
+
+        if not os.path.exists(self.__out_dir):
+            os.makedirs(self.__out_dir)
 
         self.__in_dir = in_dir
         self.__seq_files = seq_files
@@ -41,6 +43,10 @@ class PathwayAligner():
 
         self.__barcodes, self.__barcodes_df = \
             demultiplex.get_barcodes(os.path.join(in_dir, 'barcodes.csv'))
+
+        # Backwards compatibility:
+        self.__barcodes_df.rename(columns={'actual_ice_id': 'known_seq_id'},
+                                  inplace=True)
 
     def score_alignments(self, tolerance, num_threads):
         '''Score alignments.'''
@@ -142,7 +148,7 @@ def main(args):
     seq_files = {os.path.splitext(os.path.basename(seq_file))[0]: seq_file
                  for seq_file in args[6:]}
 
-    aligner = PathwayAligner(out_dir=args[0],
+    aligner = PathwayAligner(out_dir=os.path.join(args[0], str(uuid.uuid4())),
                              in_dir=args[1],
                              seq_files=seq_files,
                              min_length=int(args[2]),

@@ -9,6 +9,8 @@ All rights reserved.
 # pylint: disable=too-many-locals
 import os
 import sys
+import uuid
+
 from synbiochem.utils import ice_utils, seq_utils
 
 from sbc_ngs.pathway import PathwayAligner
@@ -17,6 +19,9 @@ from sbc_ngs.pathway import PathwayAligner
 def get_ice_files(url, username, password, ice_ids_filename,
                   for_primer, rev_primer, out_dir):
     '''Get ICE sequences.'''
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
     ice_client = ice_utils.ICEClient(url, username, password)
 
     with open(ice_ids_filename, 'r') as ice_ids_file:
@@ -46,7 +51,7 @@ def get_ice_files(url, username, password, ice_ids_filename,
 
 def main(args):
     '''main method.'''
-    out_dir = args[0]
+    out_dir = os.path.join(args[0], str(uuid.uuid4()))
     in_dir = args[1]
 
     # Get pathway sequences from ICE:
