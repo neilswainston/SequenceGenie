@@ -32,6 +32,7 @@ def get_reads(filename, min_length):
     try:
         with open(filename, 'rU') as fle:
             print('Reading: %s' % filename)
+
             all_reads = [record for record in SeqIO.parse(fle, ext[1:])]
 
             return [record for record in all_reads

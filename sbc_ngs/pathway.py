@@ -47,7 +47,7 @@ class PathwayAligner():
         num_threads = num_threads if num_threads > 0 else mp.cpu_count()
         print('Running pathway with %d threads' % num_threads)
 
-        for templ_filename, _ in self.__seq_files.values():
+        for templ_filename in self.__seq_files.values():
             utils.index(templ_filename)
 
         barcode_reads = demultiplex.demultiplex(self.__barcodes,
@@ -84,7 +84,7 @@ class PathwayAligner():
     def __get_seq_files(self, barcodes):
         '''Get appropriate sequence files.'''
         try:
-            seq_id = self.__barcodes_df.loc[barcodes, 'actual_seq_id']
+            seq_id = self.__barcodes_df.loc[barcodes, 'known_seq_id']
 
             if seq_id:
                 return {seq_id: self.__seq_files[seq_id]}
@@ -107,15 +107,15 @@ def _get_barcode_seq(barcode_seq_filename):
 def _score_alignment(dir_name, barcodes, reads_filename, seq_files,
                      dp_filter, write_queue):
     '''Score an alignment.'''
-    for seq_id, (templ_filename, _) in seq_files.items():
-        _score_barcodes_seq(templ_filename, dir_name, barcodes,
+    for seq_id, seq_filename in seq_files.items():
+        _score_barcodes_seq(seq_filename, dir_name, barcodes,
                             seq_id, reads_filename,
                             dp_filter, write_queue)
 
         print('Scored: %s against %s' % (reads_filename, seq_id))
 
 
-def _score_barcodes_seq(templ_pcr_filename, dir_name, barcodes,
+def _score_barcodes_seq(seq_filename, dir_name, barcodes,
                         seq_id, reads_filename,
                         dp_filter, write_queue):
     '''Score barcodes seq pair.'''
@@ -124,7 +124,7 @@ def _score_barcodes_seq(templ_pcr_filename, dir_name, barcodes,
     bam_filename = os.path.join(barcode_dir_name, 'alignment.bam')
 
     # Align:
-    utils.mem(templ_pcr_filename, reads_filename, sam_filename)
+    utils.mem(seq_filename, reads_filename, sam_filename)
 
     # Convert sam to bam and sort:
     pysam.view(sam_filename, '-o', bam_filename, catch_stdout=False)
@@ -132,8 +132,7 @@ def _score_barcodes_seq(templ_pcr_filename, dir_name, barcodes,
     os.remove(sam_filename)
 
     # Generate and analyse variants file:
-    vcf_filename = vcf_utils.get_vcf(bam_filename, templ_pcr_filename,
-                                     pcr_offset=0)
+    vcf_filename = vcf_utils.get_vcf(bam_filename, seq_filename, pcr_offset=0)
 
     vcf_utils.analyse(vcf_filename, seq_id, barcodes, dp_filter, write_queue)
 
@@ -141,15 +140,15 @@ def _score_barcodes_seq(templ_pcr_filename, dir_name, barcodes,
 def main(args):
     '''main method.'''
     seq_files = {os.path.splitext(os.path.basename(seq_file))[0]: seq_file
-                 for seq_file in args[7:]}
+                 for seq_file in args[6:]}
 
     aligner = PathwayAligner(out_dir=args[0],
                              in_dir=args[1],
                              seq_files=seq_files,
-                             min_length=int(args[3]),
-                             max_read_files=int(args[4]))
+                             min_length=int(args[2]),
+                             max_read_files=int(args[3]))
 
-    aligner.score_alignments(int(args[5]), num_threads=int(args[6]))
+    aligner.score_alignments(int(args[4]), num_threads=int(args[5]))
 
 
 if __name__ == '__main__':

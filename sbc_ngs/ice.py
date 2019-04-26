@@ -29,10 +29,9 @@ def get_ice_files(url, username, password, ice_ids_filename,
     seqs, offsets = zip(*seqs_offsets)
 
     ice_files = {ice_id:
-                 (seq_utils.write_fasta({ice_id: seq},
-                                        os.path.join(out_dir,
-                                                     ice_id + '.fasta')),
-                  len(seq))
+                 seq_utils.write_fasta({ice_id: seq},
+                                       os.path.join(out_dir,
+                                                    ice_id + '.fasta'))
                  for ice_id, seq in zip(ice_ids, seqs)}
 
     pcr_offsets = {ice_id: offset for ice_id, offset in zip(ice_ids, offsets)}

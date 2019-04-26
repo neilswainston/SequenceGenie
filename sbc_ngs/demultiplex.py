@@ -68,7 +68,7 @@ class ReadThread(Thread):
 
 def get_barcodes(filename):
     '''Get barcodes.'''
-    barcodes_df = pd.read_csv(os.path.join(filename))
+    barcodes_df = pd.read_csv(filename)
     barcodes_df.fillna('', inplace=True)
 
     barcodes = \
