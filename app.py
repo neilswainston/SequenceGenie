@@ -7,13 +7,15 @@ All rights reserved.
 '''
 import sys
 
-from sbc_ngs import pathway
+from sbc_ngs import ice, pathway
 
 
 def main(args):
     '''main method.'''
     if args[0] == 'pathway':
         pathway.main(args[1:])
+    elif args[0] == 'ice':
+        ice.main(args[1:])
 
 
 if __name__ == '__main__':

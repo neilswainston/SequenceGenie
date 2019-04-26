@@ -1,5 +1,5 @@
 docker run -d -v $1/data:/data -v $1/results:/results sbc-ngs \
-pathway \
+ice \
 /results \
 /data \
 https://ice.synbiochem.co.uk \
