@@ -36,7 +36,7 @@ class PathwayAligner():
         os.makedirs(self.__out_dir)
 
         # Get pathway sequences from ICE:
-        self.__ice_files, self.__pcr_offsets, _ = \
+        self.__ice_files, _, _ = \
             ice.get_ice_files(ice_url, ice_username, ice_password,
                               os.path.join(in_dir, 'ice_ids.txt'),
                               for_primer, rev_primer,
@@ -75,7 +75,6 @@ class PathwayAligner():
                                         barcodes,
                                         reads_filename,
                                         self.__get_ice_files(barcodes),
-                                        self.__pcr_offsets,
                                         self.__dp_filter,
                                         write_queue))
                  for barcodes, reads_filename in barcode_reads.items()]
@@ -111,18 +110,18 @@ def _get_barcode_ice(barcode_ice_filename):
 
 
 def _score_alignment(dir_name, barcodes, reads_filename, ice_files,
-                     pcr_offsets, dp_filter, write_queue):
+                     dp_filter, write_queue):
     '''Score an alignment.'''
     for ice_id, (templ_filename, _) in ice_files.items():
         _score_barcodes_ice(templ_filename, dir_name, barcodes,
-                            ice_id, pcr_offsets[ice_id], reads_filename,
+                            ice_id, reads_filename,
                             dp_filter, write_queue)
 
         print('Scored: %s against %s' % (reads_filename, ice_id))
 
 
 def _score_barcodes_ice(templ_pcr_filename, dir_name, barcodes,
-                        ice_id, pcr_offset, reads_filename,
+                        ice_id, reads_filename,
                         dp_filter, write_queue):
     '''Score barcodes ice pair.'''
     barcode_dir_name = utils.get_dir(dir_name, barcodes, ice_id)
