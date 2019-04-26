@@ -7,12 +7,10 @@ All rights reserved.
 '''
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-locals
-# pylint: disable=wrong-import-order
 import os
 import sys
 from synbiochem.utils import ice_utils, seq_utils
 
-import multiprocessing as mp
 from sbc_ngs.pathway import PathwayAligner
 
 
@@ -49,13 +47,6 @@ def get_ice_files(url, username, password, ice_ids_filename,
 
 def main(args):
     '''main method.'''
-    try:
-        num_threads = int(args[10])
-    except ValueError:
-        num_threads = mp.cpu_count()
-
-    print('Running pathway with %d threads' % num_threads)
-
     out_dir = args[0]
     in_dir = args[1]
 
@@ -75,7 +66,7 @@ def main(args):
                              min_length=int(args[7]),
                              max_read_files=int(args[8]))
 
-    aligner.score_alignments(int(args[9]), num_threads)
+    aligner.score_alignments(int(args[9]), num_threads=int(args[10]))
 
 
 if __name__ == '__main__':

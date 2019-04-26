@@ -10,4 +10,4 @@ ttactcgagtttggatcc \
 $4 \
 $5 \
 $6 \
-True
+0

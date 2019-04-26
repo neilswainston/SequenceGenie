@@ -44,6 +44,9 @@ class PathwayAligner():
 
     def score_alignments(self, tolerance, num_threads):
         '''Score alignments.'''
+        num_threads = num_threads if num_threads > 0 else mp.cpu_count()
+        print('Running pathway with %d threads' % num_threads)
+
         for templ_filename, _ in self.__seq_files.values():
             utils.index(templ_filename)
 
@@ -137,18 +140,16 @@ def _score_barcodes_seq(templ_pcr_filename, dir_name, barcodes,
 
 def main(args):
     '''main method.'''
-    try:
-        num_threads = int(args[-1])
-    except ValueError:
-        num_threads = mp.cpu_count()
+    seq_files = {os.path.splitext(os.path.basename(seq_file))[0]: seq_file
+                 for seq_file in args[7:]}
 
-    print('Running pathway with %d threads' % num_threads)
+    aligner = PathwayAligner(out_dir=args[0],
+                             in_dir=args[1],
+                             seq_files=seq_files,
+                             min_length=int(args[3]),
+                             max_read_files=int(args[4]))
 
-    aligner = PathwayAligner(*args[:-4],
-                             min_length=int(args[-4]),
-                             max_read_files=int(args[-3]))
-
-    aligner.score_alignments(int(args[-2]), num_threads)
+    aligner.score_alignments(int(args[5]), num_threads=int(args[6]))
 
 
 if __name__ == '__main__':
