@@ -150,7 +150,7 @@ def _bin_seqs(reads_filename, min_length, max_barcode_len, search_len,
 
 
 def _check_seq(seq, max_barcode_len, search_len, pairs,
-               tolerance, write_queue, indiv_strand=False):
+               tolerance, write_queue, indiv_strand=True):
     '''Check sequence against barcode sequences.'''
     seq_len = min(max_barcode_len + search_len, len(seq))
     seq_start = list(seq.seq[:seq_len])

@@ -36,7 +36,17 @@ class Test(unittest.TestCase):
         '''Test analyse_vcf method.'''
         directory = os.path.dirname(os.path.realpath(__file__))
         vcf_filename = os.path.join(directory, 'variants.vcf')
-        _, mutations, _, _, _, _, _ = vcf_utils.analyse_vcf(vcf_filename, 0)
+        _, mutations, _, _, _, _, _ = vcf_utils.analyse_vcf(vcf_filename, 0,
+                                                            qs_threshold=0.0)
+
+        self.assertAlmostEqual(mutations[0][1], 0.510134, 3)
+
+    def test_analyse_vcf_mut_thresh(self):
+        '''Test analyse_vcf method.'''
+        directory = os.path.dirname(os.path.realpath(__file__))
+        vcf_filename = os.path.join(directory, 'variants.vcf')
+        _, mutations, _, _, _, _, _ = vcf_utils.analyse_vcf(vcf_filename, 0,
+                                                            qs_threshold=0.75)
 
         self.assertFalse(mutations)
 

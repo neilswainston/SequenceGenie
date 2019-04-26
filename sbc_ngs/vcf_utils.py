@@ -17,7 +17,7 @@ import tempfile
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from pysam import VariantFile
+from pysam.libcbcf import VariantFile
 import numpy as np
 import pandas as pd
 
@@ -113,7 +113,7 @@ def vcf_to_df(vcf_filename):
     return df, templ_len
 
 
-def analyse_vcf(vcf_filename, dp_filter, qs_threshold=0.75):
+def analyse_vcf(vcf_filename, dp_filter, qs_threshold=0.0):
     '''Analyse vcf file, returning number of matches, mutations and
     indels.'''
     num_matches = 0
