@@ -1,7 +1,7 @@
 FROM python:3.7
 
 # Setup paths:
-ENV DIRPATH /SequenceGenie
+ENV DIRPATH /sbc_ngs
 WORKDIR $DIRPATH
 COPY . .
 ENV PYTHONPATH="$DIRPATH:$PYTHONPATH"
