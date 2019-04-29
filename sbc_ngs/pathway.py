@@ -143,10 +143,28 @@ def _score_barcodes_seq(seq_filename, dir_name, barcodes,
     vcf_utils.analyse(vcf_filename, seq_id, barcodes, dp_filter, write_queue)
 
 
+def _get_seq_files(filename):
+    '''Get seq files.'''
+    seq_files = {}
+
+    if os.path.isdir(filename):
+        for fle in os.listdir(filename):
+            name, ext = os.path.splitext(os.path.basename(fle))
+
+            if ext == '.fasta':
+                seq_files[name] = os.path.join(filename, fle)
+    else:
+        seq_files[os.path.splitext(os.path.basename(filename))[0]] = filename
+
+    return seq_files
+
+
 def main(args):
     '''main method.'''
-    seq_files = {os.path.splitext(os.path.basename(seq_file))[0]: seq_file
-                 for seq_file in args[6:]}
+    seq_files = {}
+
+    for seq_file in args[6:]:
+        seq_files.update(_get_seq_files(seq_file))
 
     aligner = PathwayAligner(out_dir=os.path.join(args[0], str(uuid.uuid4())),
                              in_dir=args[1],
