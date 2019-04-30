@@ -18,6 +18,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from pysam.libcbcf import VariantFile
+
 import numpy as np
 import pandas as pd
 
@@ -47,7 +48,6 @@ def get_vcf(bam_filename, templ_filename, pcr_offset=0):
 
         for rec in vcf_in.fetch():
             rec.pos = rec.pos + pcr_offset
-            print(rec)
             vcf_out.write(rec)
 
         vcf_out.close()

@@ -10,7 +10,9 @@ import os
 from shutil import copyfile
 import tempfile
 import unittest
+
 from Bio import SeqIO
+
 import pandas as pd
 from sbc_ngs import demultiplex
 
