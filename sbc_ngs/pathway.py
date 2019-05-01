@@ -18,8 +18,6 @@ import subprocess
 import sys
 import uuid
 
-import pysam
-
 import multiprocessing as mp
 import pandas as pd
 from sbc_ngs import demultiplex, results, utils, vcf_utils
@@ -122,21 +120,18 @@ def _score_barcodes_seq(seq_filename, dir_name, barcodes,
                         seq_id, reads_filename, write_queue):
     '''Score barcodes seq pair.'''
     barcode_dir_name = utils.get_dir(dir_name, barcodes, seq_id)
-    sam_filename = os.path.join(barcode_dir_name, '%s.sam' % barcodes[2])
     bam_filename = os.path.join(barcode_dir_name, '%s.bam' % barcodes[2])
 
-    # Align:
-    with open(sam_filename, 'w') as out:
-        subprocess.call(['bwa', 'mem',
-                         '-x', 'ont2d',
-                         '-O', '6',
-                         seq_filename, reads_filename],
-                        stdout=out)
+    prs = subprocess.Popen(('bwa', 'mem',
+                            '-x', 'ont2d',
+                            '-O', '6',
+                            seq_filename, reads_filename),
+                           stdout=subprocess.PIPE)
 
-    # Convert sam to bam and sort:
-    pysam.view(sam_filename, '-o', bam_filename, catch_stdout=False)
-    pysam.sort('-o', bam_filename, bam_filename)
-    os.remove(sam_filename)
+    subprocess.check_output(('samtools', 'sort',
+                             '-o', bam_filename, '-'),
+                            stdin=prs.stdout)
+    prs.wait()
 
     # Generate and analyse variants file:
     vcf_filename = vcf_utils.get_vcf(bam_filename, seq_filename)
