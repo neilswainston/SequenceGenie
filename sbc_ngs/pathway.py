@@ -27,8 +27,7 @@ from sbc_ngs import demultiplex, results, utils, vcf_utils
 class PathwayAligner():
     '''Class to align NGS data to pathways.'''
 
-    def __init__(self, out_dir, in_dir, seq_files, min_length, max_read_files,
-                 dp_filter=0.25):
+    def __init__(self, out_dir, in_dir, seq_files, min_length, max_read_files):
         # Initialise project directory:
         self.__out_dir = out_dir
 
@@ -39,7 +38,6 @@ class PathwayAligner():
         self.__seq_files = seq_files
         self.__min_length = min_length
         self.__max_read_files = max_read_files
-        self.__dp_filter = dp_filter
 
         self.__barcodes, self.__barcodes_df = \
             demultiplex.get_barcodes(os.path.join(in_dir, 'barcodes.csv'))
@@ -76,7 +74,6 @@ class PathwayAligner():
                                         barcodes,
                                         reads_filename,
                                         self.__get_seq_files(barcodes),
-                                        self.__dp_filter,
                                         write_queue))
                  for barcodes, reads_filename in barcode_reads.items()]
 
@@ -111,23 +108,21 @@ def _get_barcode_seq(barcode_seq_filename):
 
 
 def _score_alignment(dir_name, barcodes, reads_filename, seq_files,
-                     dp_filter, write_queue):
+                     write_queue):
     '''Score an alignment.'''
     for seq_id, seq_filename in seq_files.items():
         _score_barcodes_seq(seq_filename, dir_name, barcodes,
-                            seq_id, reads_filename,
-                            dp_filter, write_queue)
+                            seq_id, reads_filename, write_queue)
 
         print('Scored: %s against %s' % (reads_filename, seq_id))
 
 
 def _score_barcodes_seq(seq_filename, dir_name, barcodes,
-                        seq_id, reads_filename,
-                        dp_filter, write_queue):
+                        seq_id, reads_filename, write_queue):
     '''Score barcodes seq pair.'''
     barcode_dir_name = utils.get_dir(dir_name, barcodes, seq_id)
-    sam_filename = os.path.join(barcode_dir_name, 'alignment.sam')
-    bam_filename = os.path.join(barcode_dir_name, 'alignment.bam')
+    sam_filename = os.path.join(barcode_dir_name, '%s.sam' % barcodes[2])
+    bam_filename = os.path.join(barcode_dir_name, '%s.bam' % barcodes[2])
 
     # Align:
     utils.mem(seq_filename, reads_filename, sam_filename)
@@ -138,9 +133,9 @@ def _score_barcodes_seq(seq_filename, dir_name, barcodes,
     os.remove(sam_filename)
 
     # Generate and analyse variants file:
-    vcf_filename = vcf_utils.get_vcf(bam_filename, seq_filename, pcr_offset=0)
+    vcf_filename = vcf_utils.get_vcf(bam_filename, seq_filename)
 
-    vcf_utils.analyse(vcf_filename, seq_id, barcodes, dp_filter, write_queue)
+    vcf_utils.analyse(vcf_filename, seq_id, barcodes, write_queue)
 
 
 def _get_seq_files(filename):

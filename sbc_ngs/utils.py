@@ -34,7 +34,7 @@ def mem(templ_filename, reads_filename, out_filename=None,
 
 def get_dir(parent_dir, barcodes, ice_id=None):
     '''Get directory from barcodes.'''
-    dir_name = os.path.join(parent_dir, '_'.join(barcodes))
+    dir_name = os.path.join(parent_dir, '_'.join(barcodes[:2]))
 
     if ice_id:
         dir_name = os.path.join(dir_name, ice_id)

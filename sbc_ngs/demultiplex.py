@@ -16,7 +16,7 @@ from Bio import Seq, SeqIO
 
 import multiprocessing as mp
 import pandas as pd
-from sbc_ngs import reads
+from sbc_ngs import reads, utils
 
 
 class ReadThread(Thread):
@@ -55,8 +55,8 @@ class ReadThread(Thread):
         barcodes = task[0]
 
         if barcodes not in self.__files:
-            dir_name = os.path.join(self.__parent_dir, '_'.join(barcodes))
-            filename = os.path.join(dir_name, 'reads.fasta')
+            dir_name = utils.get_dir(self.__parent_dir, barcodes)
+            filename = os.path.join(dir_name, '%s_reads.fasta' % barcodes[2])
 
             if not os.path.exists(dir_name):
                 os.makedirs(dir_name)

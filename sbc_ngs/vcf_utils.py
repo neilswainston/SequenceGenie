@@ -9,26 +9,21 @@ All rights reserved.
 # pylint: disable=consider-using-dict-comprehension
 # pylint: disable=invalid-name
 # pylint: disable=too-many-locals
-import os
 import re
 import subprocess
-import tempfile
+import sys
 
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from pysam.libcbcf import VariantFile
 
 import numpy as np
 import pandas as pd
 
 
-def get_vcf(bam_filename, templ_filename, pcr_offset=0):
+def get_vcf(bam_filename, templ_filename):
     '''Generates a vcf file.'''
-    vcf_filename = \
-        tempfile.NamedTemporaryFile('w', suffix='.vcf', delete=False).name \
-        if pcr_offset else os.path.join(os.path.dirname(bam_filename),
-                                        'variants.vcf')
+    vcf_filename = bam_filename.replace('.bam', '.vcf')
 
     prc = subprocess.Popen(['samtools',
                             'mpileup',
@@ -40,29 +35,15 @@ def get_vcf(bam_filename, templ_filename, pcr_offset=0):
 
     prc.communicate()
 
-    if pcr_offset:
-        vcf_out_filename = os.path.join(os.path.dirname(bam_filename),
-                                        'variants.vcf')
-        vcf_in = VariantFile(vcf_filename)
-        vcf_out = VariantFile(vcf_out_filename, 'w', header=vcf_in.header)
-
-        for rec in vcf_in.fetch():
-            rec.pos = rec.pos + pcr_offset
-            vcf_out.write(rec)
-
-        vcf_out.close()
-        return vcf_out_filename
-
     return vcf_filename
 
 
-def analyse(vcf_filename, target_id, src_id, dp_filter, write_queue):
+def analyse(vcf_filename, target_id, src_id, write_queue):
     '''Analyse a given vcf file.'''
     num_matches, mutations, indels, deletions, templ_len, \
-        consensus_seq, depths = analyse_vcf(vcf_filename, dp_filter)
+        consensus_seq, depths = analyse_vcf(vcf_filename)
 
-    consensus_filename = os.path.join(os.path.dirname(vcf_filename),
-                                      'consensus.fasta')
+    consensus_filename = vcf_filename.replace('.vcf', '_consensus.fasta')
     record = SeqRecord(Seq(consensus_seq), id=vcf_filename)
     SeqIO.write([record], consensus_filename, 'fasta')
 
@@ -113,7 +94,7 @@ def vcf_to_df(vcf_filename):
     return df, templ_len
 
 
-def analyse_vcf(vcf_filename, dp_filter, qs_threshold=0.0):
+def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
     '''Analyse vcf file, returning number of matches, mutations and
     indels.'''
     num_matches = 0
@@ -203,3 +184,27 @@ def _get_ranges(vals):
         ranges.append((sorted_vals[i], sorted_vals[-1]))
 
     return ranges
+
+
+def _get_consistency(forward, reverse):
+    '''Get consistency.'''
+    if not forward or not reverse:
+        # If only a single strand, consider no bias:
+        return 1.0
+
+    minima = np.minimum(forward, reverse)
+    return np.true_divide(np.sum(minima), np.sum(reverse))
+
+
+def analyse_dir(dir_name):
+    '''Analyse directory.'''
+    pass
+
+
+def main(args):
+    '''main method.'''
+    analyse_dir(None)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
