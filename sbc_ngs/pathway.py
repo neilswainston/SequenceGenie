@@ -73,6 +73,7 @@ class PathwayAligner():
                                         barcodes,
                                         reads_filename,
                                         self.__get_seq_files(barcodes),
+                                        num_threads,
                                         write_queue))
                  for barcodes, reads_filename in barcode_reads.items()]
 
@@ -107,17 +108,17 @@ def _get_barcode_seq(barcode_seq_filename):
 
 
 def _score_alignment(dir_name, barcodes, reads_filename, seq_files,
-                     write_queue):
+                     num_threads, write_queue):
     '''Score an alignment.'''
     for seq_id, seq_filename in seq_files.items():
         _score_barcodes_seq(seq_filename, dir_name, barcodes,
-                            seq_id, reads_filename, write_queue)
+                            seq_id, reads_filename, num_threads, write_queue)
 
         print('Scored: %s against %s' % (reads_filename, seq_id))
 
 
 def _score_barcodes_seq(seq_filename, dir_name, barcodes,
-                        seq_id, reads_filename, write_queue):
+                        seq_id, reads_filename, num_threads, write_queue):
     '''Score barcodes seq pair.'''
     barcode_dir_name = utils.get_dir(dir_name, barcodes, seq_id)
     bam_filename = os.path.join(barcode_dir_name, '%s.bam' % barcodes[2])
@@ -125,10 +126,12 @@ def _score_barcodes_seq(seq_filename, dir_name, barcodes,
     prs = subprocess.Popen(('bwa', 'mem',
                             '-x', 'ont2d',
                             '-O', '6',
+                            '-t', str(num_threads),
                             seq_filename, reads_filename),
                            stdout=subprocess.PIPE)
 
     subprocess.check_output(('samtools', 'sort',
+                             '-@%i' % num_threads,
                              '-o', bam_filename, '-'),
                             stdin=prs.stdout)
     prs.wait()
