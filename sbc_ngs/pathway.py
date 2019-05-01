@@ -126,7 +126,12 @@ def _score_barcodes_seq(seq_filename, dir_name, barcodes,
     bam_filename = os.path.join(barcode_dir_name, '%s.bam' % barcodes[2])
 
     # Align:
-    _mem(seq_filename, reads_filename, sam_filename)
+    with open(sam_filename, 'w') as out:
+        subprocess.call(['bwa', 'mem',
+                         '-x', 'ont2d',
+                         '-O', '6',
+                         seq_filename, reads_filename],
+                        stdout=out)
 
     # Convert sam to bam and sort:
     pysam.view(sam_filename, '-o', bam_filename, catch_stdout=False)
@@ -137,17 +142,6 @@ def _score_barcodes_seq(seq_filename, dir_name, barcodes,
     vcf_filename = vcf_utils.get_vcf(bam_filename, seq_filename)
 
     vcf_utils.analyse(vcf_filename, seq_id, barcodes, write_queue)
-
-
-def _mem(templ_filename, reads_filename, out_filename,
-         readtype='ont2d', gap_open=6):
-    '''Runs BWA MEM.'''
-    with open(out_filename, 'w') as out:
-        subprocess.call(['bwa', 'mem',
-                         '-x', readtype,
-                         '-O', str(gap_open),
-                         templ_filename, reads_filename],
-                        stdout=out)
 
 
 def _get_seq_files(filename):
