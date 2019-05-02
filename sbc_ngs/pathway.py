@@ -45,13 +45,14 @@ class PathwayAligner():
         self.__barcodes_df.rename(columns={'actual_ice_id': 'known_seq_id'},
                                   inplace=True)
 
+        # Index sequence / template files:
+        for templ_filename in self.__seq_files.values():
+            subprocess.call(['bwa', 'index', templ_filename])
+
     def score_alignments(self, tolerance, num_threads):
         '''Score alignments.'''
         num_threads = num_threads if num_threads > 0 else mp.cpu_count()
         print('Running pathway with %d threads' % num_threads)
-
-        for templ_filename in self.__seq_files.values():
-            subprocess.call(['bwa', 'index', templ_filename])
 
         barcode_reads = demultiplex.demultiplex(self.__barcodes,
                                                 self.__in_dir,
@@ -61,24 +62,19 @@ class PathwayAligner():
                                                 tolerance=tolerance,
                                                 num_threads=num_threads)
 
-        pool = mp.Pool(processes=num_threads)
         write_queue = mp.Manager().Queue()
         results_thread = results.ResultsThread(sorted(self.__seq_files.keys()),
                                                self.__barcodes_df,
                                                write_queue)
         results_thread.start()
 
-        rslts = [pool.apply_async(_score_alignment,
-                                  args=(self.__out_dir,
-                                        barcodes,
-                                        reads_filename,
-                                        self.__get_seq_files(barcodes),
-                                        num_threads,
-                                        write_queue))
-                 for barcodes, reads_filename in barcode_reads.items()]
-
-        for res in rslts:
-            res.get()
+        for barcodes, reads_filename in barcode_reads.items():
+            _score_alignment(self.__out_dir,
+                             barcodes,
+                             reads_filename,
+                             self.__get_seq_files(barcodes),
+                             num_threads,
+                             write_queue)
 
         # Update summary:
         results_thread.close()
@@ -111,35 +107,37 @@ def _score_alignment(dir_name, barcodes, reads_filename, seq_files,
                      num_threads, write_queue):
     '''Score an alignment.'''
     for seq_id, seq_filename in seq_files.items():
-        _score_barcodes_seq(seq_filename, dir_name, barcodes,
-                            seq_id, reads_filename, num_threads, write_queue)
+        barcode_dir_name = utils.get_dir(dir_name, barcodes, seq_id)
+        bam_filename = os.path.join(barcode_dir_name, '%s.bam' % barcodes[2])
+        vcf_filename = bam_filename.replace('.bam', '.vcf')
+
+        prc = subprocess.Popen(('bwa', 'mem',
+                                '-x', 'ont2d',
+                                '-O', '6',
+                                '-t', str(num_threads),
+                                seq_filename, reads_filename),
+                               stdout=subprocess.PIPE)
+
+        subprocess.check_output(('samtools', 'sort',
+                                 '-@%i' % num_threads,
+                                 '-o', bam_filename, '-'),
+                                stdin=prc.stdout)
+        prc.wait()
+
+        # Generate and analyse variants file:
+        prc = subprocess.Popen(['samtools',
+                                'mpileup',
+                                '-uvf',
+                                seq_filename,
+                                '-t', 'DP',
+                                '-o', vcf_filename,
+                                bam_filename])
+
+        prc.communicate()
+
+        vcf_utils.analyse(vcf_filename, seq_id, barcodes, write_queue)
 
         print('Scored: %s against %s' % (reads_filename, seq_id))
-
-
-def _score_barcodes_seq(seq_filename, dir_name, barcodes,
-                        seq_id, reads_filename, num_threads, write_queue):
-    '''Score barcodes seq pair.'''
-    barcode_dir_name = utils.get_dir(dir_name, barcodes, seq_id)
-    bam_filename = os.path.join(barcode_dir_name, '%s.bam' % barcodes[2])
-
-    prs = subprocess.Popen(('bwa', 'mem',
-                            '-x', 'ont2d',
-                            '-O', '6',
-                            '-t', str(num_threads),
-                            seq_filename, reads_filename),
-                           stdout=subprocess.PIPE)
-
-    subprocess.check_output(('samtools', 'sort',
-                             '-@%i' % num_threads,
-                             '-o', bam_filename, '-'),
-                            stdin=prs.stdout)
-    prs.wait()
-
-    # Generate and analyse variants file:
-    vcf_filename = vcf_utils.get_vcf(bam_filename, seq_filename)
-
-    vcf_utils.analyse(vcf_filename, seq_id, barcodes, write_queue)
 
 
 def _get_seq_files(filename):

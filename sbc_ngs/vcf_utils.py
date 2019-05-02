@@ -10,7 +10,6 @@ All rights reserved.
 # pylint: disable=invalid-name
 # pylint: disable=too-many-locals
 import re
-import subprocess
 import sys
 
 from Bio import SeqIO
@@ -19,23 +18,6 @@ from Bio.SeqRecord import SeqRecord
 
 import numpy as np
 import pandas as pd
-
-
-def get_vcf(bam_filename, templ_filename):
-    '''Generates a vcf file.'''
-    vcf_filename = bam_filename.replace('.bam', '.vcf')
-
-    prc = subprocess.Popen(['samtools',
-                            'mpileup',
-                            '-uvf',
-                            templ_filename,
-                            '-t', 'DP',
-                            '-o', vcf_filename,
-                            bam_filename])
-
-    prc.communicate()
-
-    return vcf_filename
 
 
 def analyse(vcf_filename, target_id, src_id, write_queue):
