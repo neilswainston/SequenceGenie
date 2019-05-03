@@ -8,7 +8,10 @@ All rights reserved.
 # pylint: disable=chained-comparison
 # pylint: disable=consider-using-dict-comprehension
 # pylint: disable=invalid-name
+# pylint: disable=too-many-arguments
 # pylint: disable=too-many-locals
+import operator
+import os
 import re
 import sys
 
@@ -43,6 +46,9 @@ def analyse(vcf_filename, target_id, src_id, write_queue):
 
 def vcf_to_df(vcf_filename):
     '''Convert vcf to Pandas dataframe.'''
+    if not os.path.exists(vcf_filename):
+        return None, 0
+
     data = []
     templ_len = float('NaN')
 
@@ -91,31 +97,22 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
     for _, row in df.iterrows():
         if (dp_filter > 1 and row['DP'] > dp_filter) \
                 or row['DP_PROP'] > dp_filter:
-
-            alleles = [row['REF']] + row['ALT'].split(',')
-
             # Extract QS values and order to find most-likely base:
-            qs = [float(val)
-                  for val in dict([term.split('=')
-                                   for term in row['INFO'].split(';')
-                                   if '=' in term])
-                  ['QS'].split(',')]
-
             # Compare most-likely term to reference:
-            prob_term = alleles[np.argmax(qs)]
+            max_gs = max(_get_qs(row).items(), key=operator.itemgetter(1))
 
             if row.get('INDEL', False):
-                if row['REF'] != prob_term:
-                    indels.append((row['REF'] + str(row['POS']) + prob_term,
-                                   max(qs)))
+                if row['REF'] != max_gs[0]:
+                    indels.append((row['REF'] + str(row['POS']) + max_gs[0],
+                                   max_gs[1]))
             else:
-                consensus_seq.append(prob_term)
+                consensus_seq.append(max_gs[0])
 
-                if row['REF'] != prob_term and max(qs) > qs_threshold:
-                    consensus_seq.append(prob_term)
+                if row['REF'] != max_gs[0] and max_gs[1] > qs_threshold:
+                    consensus_seq.append(max_gs[0])
 
-                    mutations.append((row['REF'] + str(row['POS']) + prob_term,
-                                      max(qs)))
+                    mutations.append((row['REF'] + str(row['POS']) + max_gs[0],
+                                      max_gs[1]))
                 else:
                     consensus_seq.append(row['REF'])
                     num_matches += 1
@@ -126,6 +123,17 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
 
     return num_matches, mutations, indels, _get_ranges_str(deletions), \
         templ_len, ''.join(consensus_seq), depths
+
+
+def analyse_dir(parent_dir):
+    '''Analyse directory.'''
+    for fle in os.listdir(parent_dir):
+        if os.path.isdir(fle):
+            for subfle in fle:
+                forward_df, _ = vcf_to_df(os.path.join(subfle, 'forward.vcf'))
+                reverse_df, _ = vcf_to_df(os.path.join(subfle, 'reverse.vcf'))
+                forward_qs = _get_qs_by_pos(forward_df) if forward_df else None
+                reverse_qs = _get_qs_by_pos(reverse_df) if reverse_df else None
 
 
 def _expand_info(df):
@@ -168,24 +176,51 @@ def _get_ranges(vals):
     return ranges
 
 
+def _get_qs_by_pos(df):
+    '''Get QS values per position.'''
+    return {row['POS']: _get_qs(row) for _, row in df.iterrows()}
+
+
+def _get_qs(row):
+    '''Get QS for a given positional row.'''
+    nucl_qs = {n: 0.0 for n in 'ACGT'}
+
+    nucl = [row['REF']] + [nucl for nucl in row['ALT'].split(',')
+                           if nucl != '<*>']
+
+    qs = [float(val) for val in dict([term.split('=')
+                                      for term in row['INFO'].split(';')
+                                      if '=' in term])
+          ['QS'].split(',')
+          if float(val) > 0]
+
+    nucl_qs.update(dict(zip(nucl, qs)))
+
+    return nucl_qs
+
+
+def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl,
+               prior_prob=0.97):
+    '''Get probabilities.'''
+    prior = {nucl: (1 - prior_prob) / 3 for nucl in 'ACGT'}
+    prior[prior_nucl] = prior_prob
+
+    consistency = _get_consistency(forward, reverse)
+
+    return (consistency / (num_forw + num_rev) *
+            (num_forw * forward + num_rev * reverse)) + \
+        (1 - consistency) * np.fromiter(prior.values(), dtype=float)
+
+
 def _get_consistency(forward, reverse):
     '''Get consistency.'''
-    if not forward or not reverse:
-        # If only a single strand, consider no bias:
-        return 1.0
-
     minima = np.minimum(forward, reverse)
     return np.true_divide(np.sum(minima), np.sum(reverse))
 
 
-def analyse_dir(dir_name):
-    '''Analyse directory.'''
-    pass
-
-
 def main(args):
     '''main method.'''
-    analyse_dir(None)
+    analyse_dir(args[0])
 
 
 if __name__ == '__main__':
