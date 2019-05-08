@@ -143,16 +143,21 @@ def analyse_dir(parent_dir):
         for _id, row in qs_df.iterrows():
             missing_0 = row.iloc[qs_df.columns.get_level_values(0) == 0].empty
             missing_1 = row.iloc[qs_df.columns.get_level_values(0) == 1].empty
+            ref = row[1, 'REF'] if missing_0 else row[0, 'REF']
 
-            print(_get_probs(np.array([0.25] * 4)
-                             if missing_0
-                             else np.array(list(row[0, 'nucls'].values())),
-                             np.array([0.25] * 4)
-                             if missing_1
-                             else np.array(list(row[1, 'nucls'].values())),
-                             0 if missing_0 else row[0, 'DP'],
-                             0 if missing_1 else row[1, 'DP'],
-                             row[1, 'REF'] if missing_0 else row[0, 'REF']))
+            probs = _get_probs(np.array([0.25] * 4)
+                               if missing_0
+                               else np.array(list(row[0, 'nucls'].values())),
+                               np.array([0.25] * 4)
+                               if missing_1
+                               else np.array(list(row[1, 'nucls'].values())),
+                               0 if missing_0 else row[0, 'DP'],
+                               0 if missing_1 else row[1, 'DP'],
+                               ref)
+
+            if ref != 'ACGT'[np.argmax(probs)]:
+                print(row)
+                print(ref, 'ACGT'[np.argmax(probs)], probs, _id, root)
 
 
 def _expand_info(df):
