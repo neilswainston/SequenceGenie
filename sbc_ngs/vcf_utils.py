@@ -10,6 +10,7 @@ All rights reserved.
 # pylint: disable=invalid-name
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-locals
+from collections import defaultdict
 import operator
 import os
 import re
@@ -25,7 +26,7 @@ import pandas as pd
 
 def analyse(vcf_filename, target_id, src_id, write_queue):
     '''Analyse a given vcf file.'''
-    num_matches, mutations, indels, deletions, templ_len, \
+    num_matches, nucleotides, indels, deletions, templ_len, \
         consensus_seq, depths = analyse_vcf(vcf_filename)
 
     consensus_filename = vcf_filename.replace('.vcf', '_consensus.fasta')
@@ -35,7 +36,7 @@ def analyse(vcf_filename, target_id, src_id, write_queue):
     write_queue.put(
         ['identity', num_matches / float(templ_len), target_id, src_id])
     write_queue.put(
-        ['mutations', mutations, target_id, src_id])
+        ['nucleotides', nucleotides, target_id, src_id])
     write_queue.put(
         ['indels', indels, target_id, src_id])
     write_queue.put(
@@ -86,7 +87,7 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
     '''Analyse vcf file, returning number of matches, mutations and
     indels.'''
     num_matches = 0
-    mutations = []
+    nucls = []
     indels = []
     deletions = []
     consensus_seq = []
@@ -99,7 +100,8 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
                 or row['DP_PROP'] > dp_filter:
             # Extract QS values and order to find most-likely base:
             # Compare most-likely term to reference:
-            max_gs = max(_get_qs(row).items(), key=operator.itemgetter(1))
+            qs, _, _ = _get_qs(row)
+            max_gs = max(qs.items(), key=operator.itemgetter(1))
 
             if row.get('INDEL', False):
                 if row['REF'] != max_gs[0]:
@@ -111,8 +113,8 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
                 if row['REF'] != max_gs[0] and max_gs[1] > qs_threshold:
                     consensus_seq.append(max_gs[0])
 
-                    mutations.append((row['REF'] + str(row['POS']) + max_gs[0],
-                                      max_gs[1]))
+                    nucls.append((row['REF'] + str(row['POS']) + max_gs[0],
+                                  max_gs[1]))
                 else:
                     consensus_seq.append(row['REF'])
                     num_matches += 1
@@ -121,19 +123,37 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
         else:
             deletions.append(row['POS'])
 
-    return num_matches, mutations, indels, _get_ranges_str(deletions), \
+    return num_matches, nucls, indels, _get_ranges_str(deletions), \
         templ_len, ''.join(consensus_seq), depths
 
 
 def analyse_dir(parent_dir):
     '''Analyse directory.'''
-    for fle in os.listdir(parent_dir):
-        if os.path.isdir(fle):
-            for subfle in fle:
-                forward_df, _ = vcf_to_df(os.path.join(subfle, 'forward.vcf'))
-                reverse_df, _ = vcf_to_df(os.path.join(subfle, 'reverse.vcf'))
-                forward_qs = _get_qs_by_pos(forward_df) if forward_df else None
-                reverse_qs = _get_qs_by_pos(reverse_df) if reverse_df else None
+    vcf_files = defaultdict(list)
+
+    for root, _, files in os.walk(parent_dir, topdown=False):
+        for name in files:
+            if re.search(r'^(forward|reverse)\.vcf$', name):
+                vcf_files[tuple(root.split(os.path.sep))].append(
+                    os.path.join(root, name))
+
+    for root, files in vcf_files.items():
+        qs_df = _get_qs_df(files)
+
+        for _id, row in qs_df.iterrows():
+            print(root, _id)
+            strand_1 = row.iloc[qs_df.columns.get_level_values(0) == 0][0]
+            strand_2 = row.iloc[qs_df.columns.get_level_values(0) == 1]
+
+            print(row)
+
+            print(_get_probs(np.array(list(strand_1['nucls'].values())),
+                             np.array([0.25] * 4)
+                             if strand_2.empty
+                             else np.array(list(row[1, 'nucls'].values())),
+                             strand_1['DP'],
+                             0 if strand_2.empty else row[1, 'DP'],
+                             strand_1['REF']))
 
 
 def _expand_info(df):
@@ -176,9 +196,31 @@ def _get_ranges(vals):
     return ranges
 
 
-def _get_qs_by_pos(df):
+def _get_qs_df(filenames):
     '''Get QS values per position.'''
-    return {row['POS']: _get_qs(row) for _, row in df.iterrows()}
+    qs_dfs = []
+
+    for filename in filenames:
+        # name = os.path.splitext(os.path.basename(filename))[0]
+        df, _ = vcf_to_df(filename)
+
+        if df is not None:
+            df = df.set_index('POS')
+            df = df[~df['INFO'].str.contains('INDEL')]
+            df = df[~df['INFO'].str.contains('DP=0')]
+            qs = df.apply(_get_qs, axis=1)
+            qs_df = pd.DataFrame(list(qs),
+                                 index=qs.index,
+                                 columns=['nucls', 'DP', 'REF']).dropna(axis=1)
+            qs_df.columns = pd.MultiIndex.from_tuples(
+                [(len(qs_dfs), col) for col in qs_df.columns])
+            qs_dfs.append(qs_df)
+
+    if len(qs_dfs) > 1:
+        return pd.merge(qs_dfs[0], qs_dfs[1],
+                        left_index=True, right_index=True)
+
+    return qs_dfs[0]
 
 
 def _get_qs(row):
@@ -188,15 +230,16 @@ def _get_qs(row):
     nucl = [row['REF']] + [nucl for nucl in row['ALT'].split(',')
                            if nucl != '<*>']
 
-    qs = [float(val) for val in dict([term.split('=')
-                                      for term in row['INFO'].split(';')
-                                      if '=' in term])
-          ['QS'].split(',')
+    info = dict([term.split('=')
+                 for term in row['INFO'].split(';')
+                 if '=' in term])
+
+    qs = [float(val) for val in info['QS'].split(',')
           if float(val) > 0]
 
     nucl_qs.update(dict(zip(nucl, qs)))
 
-    return nucl_qs
+    return nucl_qs, int(info['DP']), row['REF']
 
 
 def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl,
