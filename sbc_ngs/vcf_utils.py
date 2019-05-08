@@ -84,8 +84,7 @@ def vcf_to_df(vcf_filename):
 
 
 def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
-    '''Analyse vcf file, returning number of matches, mutations and
-    indels.'''
+    '''Analyse vcf file, returning number of matches, mutations and indels.'''
     num_matches = 0
     nucls = []
     indels = []
@@ -94,6 +93,12 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
     depths = []
 
     df, templ_len = vcf_to_df(vcf_filename)
+
+    dir_name, name = os.path.split(vcf_filename)
+
+    if name == 'sum.vcf':
+        str_spec = get_strand_specific(dir_name)
+        print(str_spec)
 
     for _, row in df.iterrows():
         if (dp_filter > 1 and row['DP'] > dp_filter) \
@@ -127,8 +132,9 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
         templ_len, ''.join(consensus_seq), depths
 
 
-def analyse_dir(parent_dir):
-    '''Analyse directory.'''
+def get_strand_specific(parent_dir):
+    '''Get strand specific scores.'''
+    strand_specific = defaultdict(list)
     vcf_files = defaultdict(list)
 
     for root, _, files in os.walk(parent_dir, topdown=False):
@@ -140,7 +146,7 @@ def analyse_dir(parent_dir):
     for root, files in vcf_files.items():
         qs_df = _get_qs_df(files)
 
-        for _id, row in qs_df.iterrows():
+        for pos, row in qs_df.iterrows():
             missing_0 = row.iloc[qs_df.columns.get_level_values(0) == 0].empty
             missing_1 = row.iloc[qs_df.columns.get_level_values(0) == 1].empty
             ref = row[1, 'REF'] if missing_0 else row[0, 'REF']
@@ -155,9 +161,15 @@ def analyse_dir(parent_dir):
                                0 if missing_1 else row[1, 'DP'],
                                ref)
 
+            print(ref, probs)
+
             if ref != 'ACGT'[np.argmax(probs)]:
-                print(row)
-                print(ref, 'ACGT'[np.argmax(probs)], probs, _id, root)
+                strand_specific[root].append([pos, ref,
+                                              'ACGT'[np.argmax(probs)],
+                                              np.max(probs),
+                                              probs])
+
+    return strand_specific
 
 
 def _expand_info(df):
@@ -270,7 +282,7 @@ def _get_consistency(forward, reverse):
 
 def main(args):
     '''main method.'''
-    analyse_dir(args[0])
+    print(get_strand_specific(args[0]))
 
 
 if __name__ == '__main__':

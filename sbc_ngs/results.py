@@ -24,7 +24,8 @@ class ResultsThread(Thread):
                                         inplace=True)
 
         # Initialise specific Dataframes:
-        for name in ['nucleotides', 'indels', 'deletions', 'identity', 'depths']:
+        for name in ['nucleotides', 'indels', 'deletions', 'identity',
+                     'depths']:
             self.__dfs[name] = self.__init_df(columns)
 
         self.__queue = queue

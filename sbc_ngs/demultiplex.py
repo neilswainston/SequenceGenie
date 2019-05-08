@@ -76,7 +76,7 @@ def get_barcodes(filename):
 
     barcodes_dfs = []
 
-    for barcode_type in ['all', 'forward', 'reverse']:
+    for barcode_type in ['forward', 'reverse', 'sum']:
         barcode_type_df = barcodes_df.copy()
         barcode_type_df['barcode_type'] = barcode_type
         barcodes_dfs.append(barcode_type_df)
@@ -163,8 +163,6 @@ def _check_seq(seq, max_barcode_len, search_len, pairs,
                                         seq_end], seq_len, tolerance)
 
         if selected_barcodes[0] and selected_barcodes[1]:
-            write_queue.put([tuple(selected_barcodes + ['all']), seq])
-
             if indiv_strand:
                 if orig[0] == ''.join(bc_pair[0]):
                     write_queue.put([tuple(selected_barcodes + ['forward']),
@@ -172,6 +170,8 @@ def _check_seq(seq, max_barcode_len, search_len, pairs,
                 else:
                     write_queue.put([tuple(selected_barcodes + ['reverse']),
                                      seq])
+
+            write_queue.put([tuple(selected_barcodes + ['sum']), seq])
 
             return True
 
