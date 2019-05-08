@@ -141,19 +141,18 @@ def analyse_dir(parent_dir):
         qs_df = _get_qs_df(files)
 
         for _id, row in qs_df.iterrows():
-            print(root, _id)
-            strand_1 = row.iloc[qs_df.columns.get_level_values(0) == 0][0]
-            strand_2 = row.iloc[qs_df.columns.get_level_values(0) == 1]
+            missing_0 = row.iloc[qs_df.columns.get_level_values(0) == 0].empty
+            missing_1 = row.iloc[qs_df.columns.get_level_values(0) == 1].empty
 
-            print(row)
-
-            print(_get_probs(np.array(list(strand_1['nucls'].values())),
+            print(_get_probs(np.array([0.25] * 4)
+                             if missing_0
+                             else np.array(list(row[0, 'nucls'].values())),
                              np.array([0.25] * 4)
-                             if strand_2.empty
+                             if missing_1
                              else np.array(list(row[1, 'nucls'].values())),
-                             strand_1['DP'],
-                             0 if strand_2.empty else row[1, 'DP'],
-                             strand_1['REF']))
+                             0 if missing_0 else row[0, 'DP'],
+                             0 if missing_1 else row[1, 'DP'],
+                             row[1, 'REF'] if missing_0 else row[0, 'REF']))
 
 
 def _expand_info(df):
@@ -183,7 +182,6 @@ def _get_ranges(vals):
 
     if vals:
         sorted_vals = sorted(vals)
-
         i = 0
 
         for j in range(1, len(sorted_vals)):
@@ -207,7 +205,7 @@ def _get_qs_df(filenames):
         if df is not None:
             df = df.set_index('POS')
             df = df[~df['INFO'].str.contains('INDEL')]
-            df = df[~df['INFO'].str.contains('DP=0')]
+            # df = df[~df['INFO'].str.contains('DP=0')]
             qs = df.apply(_get_qs, axis=1)
             qs_df = pd.DataFrame(list(qs),
                                  index=qs.index,
@@ -239,7 +237,8 @@ def _get_qs(row):
 
     nucl_qs.update(dict(zip(nucl, qs)))
 
-    return nucl_qs, int(info['DP']), row['REF']
+    return (nucl_qs if sum(nucl_qs.values()) else {n: 0.25 for n in 'ACGT'},
+            int(info['DP']), row['REF'])
 
 
 def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl,
@@ -250,9 +249,12 @@ def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl,
 
     consistency = _get_consistency(forward, reverse)
 
-    return (consistency / (num_forw + num_rev) *
-            (num_forw * forward + num_rev * reverse)) + \
-        (1 - consistency) * np.fromiter(prior.values(), dtype=float)
+    if num_forw + num_rev:
+        return (consistency / (num_forw + num_rev) *
+                (num_forw * forward + num_rev * reverse)) + \
+            (1 - consistency) * np.fromiter(prior.values(), dtype=float)
+
+    return np.array(list(prior.values()))
 
 
 def _get_consistency(forward, reverse):
@@ -267,4 +269,5 @@ def main(args):
 
 
 if __name__ == '__main__':
+    np.seterr(all='raise')
     main(sys.argv[1:])
