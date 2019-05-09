@@ -26,7 +26,7 @@ import pandas as pd
 
 def analyse(vcf_filename, target_id, src_id, write_queue):
     '''Analyse a given vcf file.'''
-    num_matches, nucleotides, indels, deletions, templ_len, \
+    num_matches, mutations, nucleotides, indels, deletions, templ_len, \
         consensus_seq, depths = analyse_vcf(vcf_filename)
 
     consensus_filename = vcf_filename.replace('.vcf', '_consensus.fasta')
@@ -35,6 +35,8 @@ def analyse(vcf_filename, target_id, src_id, write_queue):
 
     write_queue.put(
         ['identity', num_matches / float(templ_len), target_id, src_id])
+    write_queue.put(
+        ['mutations', mutations, target_id, src_id])
     write_queue.put(
         ['nucleotides', nucleotides, target_id, src_id])
     write_queue.put(
@@ -86,6 +88,7 @@ def vcf_to_df(vcf_filename):
 def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
     '''Analyse vcf file, returning number of matches, mutations and indels.'''
     num_matches = 0
+    mutations = []
     nucls = []
     indels = []
     deletions = []
@@ -95,6 +98,8 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
     df, templ_len = vcf_to_df(vcf_filename)
 
     dir_name, name = os.path.split(vcf_filename)
+
+    str_spec = None
 
     if name == 'sum.vcf':
         str_spec = get_strand_specific(dir_name)
@@ -116,19 +121,16 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
                 consensus_seq.append(max_gs[0])
 
                 if row['REF'] != max_gs[0] and max_gs[1] > qs_threshold:
-                    consensus_seq.append(max_gs[0])
-
                     nucls.append((row['REF'] + str(row['POS']) + max_gs[0],
                                   max_gs[1]))
                 else:
-                    consensus_seq.append(row['REF'])
                     num_matches += 1
 
             depths.append(row['DP'])
         else:
             deletions.append(row['POS'])
 
-    return num_matches, nucls, indels, _get_ranges_str(deletions), \
+    return num_matches, mutations, nucls, indels, _get_ranges_str(deletions), \
         templ_len, ''.join(consensus_seq), depths
 
 
@@ -160,8 +162,6 @@ def get_strand_specific(parent_dir):
                                0 if missing_0 else row[0, 'DP'],
                                0 if missing_1 else row[1, 'DP'],
                                ref)
-
-            print(ref, probs)
 
             if ref != 'ACGT'[np.argmax(probs)]:
                 strand_specific[root].append([pos, ref,
@@ -259,7 +259,7 @@ def _get_qs(row):
 
 
 def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl,
-               prior_prob=0.97):
+               prior_prob=0.5):
     '''Get probabilities.'''
     prior = {nucl: (1 - prior_prob) / 3 for nucl in 'ACGT'}
     prior[prior_nucl] = prior_prob
