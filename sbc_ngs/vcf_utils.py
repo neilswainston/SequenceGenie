@@ -88,7 +88,7 @@ def vcf_to_df(vcf_filename):
 def analyse_vcf(vcf_filename, dp_filter=0.0):
     '''Analyse vcf file, returning number of matches, mutations and indels.'''
     num_matches = 0
-    mutations = []
+    muts = []
     nucls = []
     indels = []
     deletions = []
@@ -98,10 +98,10 @@ def analyse_vcf(vcf_filename, dp_filter=0.0):
     df, templ_len = vcf_to_df(vcf_filename)
 
     dir_name, name = os.path.split(vcf_filename)
-    str_spec = None
+    str_specs = {}
 
     if name == 'sum.vcf':
-        str_spec = get_strand_specific(dir_name).get(dir_name, None)
+        str_specs = get_strand_specific(dir_name).get(dir_name, {})
 
     for _, row in df.iterrows():
         if (dp_filter > 1 and row['DP'] > dp_filter) \
@@ -116,19 +116,34 @@ def analyse_vcf(vcf_filename, dp_filter=0.0):
                     indels.append((row['REF'] + str(row['POS']) + max_gs[0],
                                    max_gs[1]))
             else:
-                consensus_seq.append(max_gs[0])
+                consensus_res = str_specs.get(row['POS'], max_gs)
+                consensus_seq.append(consensus_res[0])
+
+                match = True
 
                 if row['REF'] != max_gs[0]:
+                    match = False
                     nucls.append((row['REF'] + str(row['POS']) + max_gs[0],
                                   max_gs[1]))
-                else:
+
+                str_spec = str_specs.get(row['POS'], None)
+
+                if str_spec:
+                    if row['REF'] != str_spec[0]:
+                        match = False
+                        muts.append((row['REF'] + str(row['POS']) +
+                                     str_spec[0], str_spec[1]))
+                    else:
+                        match = True
+
+                if match:
                     num_matches += 1
 
             depths.append(row['DP'])
         else:
             deletions.append(row['POS'])
 
-    return num_matches, mutations, nucls, indels, _get_ranges_str(deletions), \
+    return num_matches, muts, nucls, indels, _get_ranges_str(deletions), \
         templ_len, ''.join(consensus_seq), depths
 
 
@@ -162,10 +177,10 @@ def get_strand_specific(parent_dir):
                                ref)
 
             if ref != 'ACGT'[np.argmax(probs)]:
-                strand_specific[root][pos] = ([ref,
-                                               'ACGT'[np.argmax(probs)],
+                strand_specific[root][pos] = (['ACGT'[np.argmax(probs)],
                                                np.max(probs),
-                                               probs])
+                                               probs,
+                                               ref])
 
     return {key: dict(val) for key, val in strand_specific.items()}
 
@@ -257,7 +272,7 @@ def _get_qs(row):
 
 
 def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl,
-               prior_prob=0.5):
+               prior_prob=0.95):
     '''Get probabilities.'''
     prior = {nucl: (1 - prior_prob) / 3 for nucl in 'ACGT'}
     prior[prior_nucl] = prior_prob
