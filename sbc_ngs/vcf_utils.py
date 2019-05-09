@@ -85,7 +85,7 @@ def vcf_to_df(vcf_filename):
     return df, templ_len
 
 
-def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
+def analyse_vcf(vcf_filename, dp_filter=0.0):
     '''Analyse vcf file, returning number of matches, mutations and indels.'''
     num_matches = 0
     mutations = []
@@ -98,12 +98,10 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
     df, templ_len = vcf_to_df(vcf_filename)
 
     dir_name, name = os.path.split(vcf_filename)
-
     str_spec = None
 
     if name == 'sum.vcf':
-        str_spec = get_strand_specific(dir_name)
-        print(str_spec)
+        str_spec = get_strand_specific(dir_name).get(dir_name, None)
 
     for _, row in df.iterrows():
         if (dp_filter > 1 and row['DP'] > dp_filter) \
@@ -120,7 +118,7 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
             else:
                 consensus_seq.append(max_gs[0])
 
-                if row['REF'] != max_gs[0] and max_gs[1] > qs_threshold:
+                if row['REF'] != max_gs[0]:
                     nucls.append((row['REF'] + str(row['POS']) + max_gs[0],
                                   max_gs[1]))
                 else:
@@ -136,13 +134,13 @@ def analyse_vcf(vcf_filename, dp_filter=0.0, qs_threshold=0.0):
 
 def get_strand_specific(parent_dir):
     '''Get strand specific scores.'''
-    strand_specific = defaultdict(list)
+    strand_specific = defaultdict(lambda: defaultdict(list))
     vcf_files = defaultdict(list)
 
     for root, _, files in os.walk(parent_dir, topdown=False):
         for name in files:
             if re.search(r'^(forward|reverse)\.vcf$', name):
-                vcf_files[tuple(root.split(os.path.sep))].append(
+                vcf_files[root].append(
                     os.path.join(root, name))
 
     for root, files in vcf_files.items():
@@ -164,12 +162,12 @@ def get_strand_specific(parent_dir):
                                ref)
 
             if ref != 'ACGT'[np.argmax(probs)]:
-                strand_specific[root].append([pos, ref,
-                                              'ACGT'[np.argmax(probs)],
-                                              np.max(probs),
-                                              probs])
+                strand_specific[root][pos] = ([ref,
+                                               'ACGT'[np.argmax(probs)],
+                                               np.max(probs),
+                                               probs])
 
-    return strand_specific
+    return {key: dict(val) for key, val in strand_specific.items()}
 
 
 def _expand_info(df):
