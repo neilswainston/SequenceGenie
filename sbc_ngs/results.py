@@ -78,19 +78,21 @@ class ResultsThread(Thread):
 
         numerical_df = numerical_df.select_dtypes(include=[np.float])
 
-        self.__dfs['summary']['matched_seq_id'] = numerical_df.idxmax(axis=1)
-        self.__dfs['summary']['identity'] = numerical_df.max(axis=1)
+        if not numerical_df.empty:
+            self.__dfs['summary']['matched_seq_id'] = \
+                numerical_df.idxmax(axis=1)
+            self.__dfs['summary']['identity'] = numerical_df.max(axis=1)
 
-        for name, df in self.__dfs.items():
-            if name != 'summary':
-                self.__dfs['summary'][name] = \
-                    df.lookup(df.index,
-                              self.__dfs['summary']['matched_seq_id'])
+            for name, df in self.__dfs.items():
+                if name != 'summary':
+                    self.__dfs['summary'][name] = \
+                        df.lookup(df.index,
+                                  self.__dfs['summary']['matched_seq_id'])
 
-        # Remove spurious unidentified entries:
-        self.__dfs['summary'] = \
-            self.__dfs['summary'][self.__dfs['summary']['identity'] != 0]
+            # Remove spurious unidentified entries:
+            self.__dfs['summary'] = \
+                self.__dfs['summary'][self.__dfs['summary']['identity'] != 0]
 
-        # Sort:
-        self.__dfs['summary'] = \
-            self.__dfs['summary'].sort_values('identity', ascending=False)
+            # Sort:
+            self.__dfs['summary'] = \
+                self.__dfs['summary'].sort_values('identity', ascending=False)

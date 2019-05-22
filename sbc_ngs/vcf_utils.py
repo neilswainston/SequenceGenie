@@ -87,6 +87,7 @@ def vcf_to_df(vcf_filename):
 
 def analyse_vcf(vcf_filename, dp_filter=0.0):
     '''Analyse vcf file, returning number of matches, mutations and indels.'''
+    print(vcf_filename)
     num_matches = 0
     muts = []
     nucls = []
@@ -118,7 +119,6 @@ def analyse_vcf(vcf_filename, dp_filter=0.0):
             else:
                 consensus_res = str_specs.get(row['POS'], max_gs)
                 consensus_seq.append(consensus_res[0])
-
                 match = True
 
                 if row['REF'] != max_gs[0]:
@@ -232,7 +232,7 @@ def _get_qs_df(filenames):
         # name = os.path.splitext(os.path.basename(filename))[0]
         df, _ = vcf_to_df(filename)
 
-        if df is not None:
+        if df is not None and not df.empty:
             df = df.set_index('POS')
             df = df[~df['INFO'].str.contains('INDEL')]
             # df = df[~df['INFO'].str.contains('DP=0')]
@@ -248,7 +248,7 @@ def _get_qs_df(filenames):
         return pd.merge(qs_dfs[0], qs_dfs[1],
                         left_index=True, right_index=True)
 
-    return qs_dfs[0]
+    return qs_dfs[0] if qs_dfs else pd.DataFrame()
 
 
 def _get_qs(row):
@@ -277,25 +277,57 @@ def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl,
     prior = {nucl: (1 - prior_prob) / 3 for nucl in 'ACGT'}
     prior[prior_nucl] = prior_prob
 
-    consistency = _get_consistency(forward, reverse)
+    intersection = _get_intersection(forward, reverse)
 
     if num_forw + num_rev:
-        return (consistency / (num_forw + num_rev) *
+        return (intersection / (num_forw + num_rev) *
                 (num_forw * forward + num_rev * reverse)) + \
-            (1 - consistency) * np.fromiter(prior.values(), dtype=float)
+            (1 - intersection) * np.fromiter(prior.values(), dtype=float)
 
     return np.array(list(prior.values()))
 
 
-def _get_consistency(forward, reverse):
-    '''Get consistency.'''
+def _get_intersection(forward, reverse):
+    '''Get intersection.'''
     minima = np.minimum(forward, reverse)
     return np.true_divide(np.sum(minima), np.sum(reverse))
 
 
 def main(args):
     '''main method.'''
-    print(get_strand_specific(args[0]))
+    import multiprocessing as mp
+    from sbc_ngs import demultiplex, results
+
+    in_dir = args[0]
+    results_dir = args[1]
+    out_dir = args[2]
+
+    _, barcodes_df = \
+        demultiplex.get_barcodes(os.path.join(in_dir, 'barcodes.csv'))
+
+    seq_ids = barcodes_df['known_seq_id'].unique()
+
+    write_queue = mp.Manager().Queue()
+    results_thread = results.ResultsThread(sorted(seq_ids),
+                                           barcodes_df,
+                                           write_queue)
+    results_thread.start()
+
+    for dirpath, _, filenames in os.walk(os.path.abspath(results_dir)):
+        for filename in filenames:
+            filepath, filename = os.path.split(os.path.join(dirpath, filename))
+
+            if filename.endswith('.vcf'):
+                dirs = filepath.split(os.sep)
+
+                analyse(os.path.join(dirpath, filename),
+                        dirs[-1],
+                        dirs[-2].split('_') + [filename.replace('.vcf', '')],
+                        write_queue)
+
+    # Update summary:
+    results_thread.close()
+    results_thread.write(out_dir)
 
 
 if __name__ == '__main__':
