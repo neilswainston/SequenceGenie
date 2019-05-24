@@ -126,10 +126,10 @@ def analyse_vcf(vcf_filename, dp_filter=0.0):
                     nucls.append((row['REF'] + str(row['POS']) + max_gs[0],
                                   max_gs[1]))
 
-                str_spec = str_specs.get(row['POS'], None)
+                if name == 'sum.vcf':
+                    str_spec = str_specs.get(row['POS'], None)
 
-                if str_spec:
-                    if row['REF'] != str_spec[0]:
+                    if str_spec and row['REF'] != str_spec[0]:
                         match = False
                         muts.append((row['REF'] + str(row['POS']) +
                                      str_spec[0], str_spec[1]))
@@ -155,8 +155,7 @@ def get_strand_specific(parent_dir):
     for root, _, files in os.walk(parent_dir, topdown=False):
         for name in files:
             if re.search(r'^(forward|reverse)\.vcf$', name):
-                vcf_files[root].append(
-                    os.path.join(root, name))
+                vcf_files[root].append(os.path.join(root, name))
 
     for root, files in vcf_files.items():
         qs_df = _get_qs_df(files)
@@ -305,6 +304,8 @@ def main(args):
     _, barcodes_df = \
         demultiplex.get_barcodes(os.path.join(in_dir, 'barcodes.csv'))
 
+    barcodes_df.rename(columns={'actual_ice_id': 'known_seq_id'},
+                       inplace=True)
     seq_ids = barcodes_df['known_seq_id'].unique()
 
     write_queue = mp.Manager().Queue()
