@@ -19,6 +19,7 @@ import sys
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+from scipy.stats import binom
 
 import numpy as np
 import pandas as pd
@@ -270,8 +271,36 @@ def _get_qs(row):
             int(info['DP']), row['REF'])
 
 
-def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl,
-               prior_prob=0.95):
+def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl):
+    '''Get probabilities.'''
+    mutprob = 0.0005
+
+    prior = [1 - mutprob if nucl == prior_nucl else mutprob / 3
+             for nucl in 'ACGT']
+
+    prior_nucl2 = np.array([0.25, 0.25, 0.25, 0.25])
+
+    nf = [round(p * num_forw) for p in forward]
+    nr = [round(p * num_rev) for p in reverse]
+    misprob_f = (sum(nf) - max(nf)) / \
+        max(sum(nf), 1e-16)  # misread probability
+    misprob_r = (sum(nr) - max(nr)) / \
+        max(sum(nr), 1e-16)  # misread probability
+
+    like_f = binom.pmf(nf, num_forw, 1 - misprob_f)
+    like_r = binom.pmf(nr, num_rev, 1 - misprob_r)
+
+    prob_nucl1 = prior_nucl2 * like_r * like_f  # Probs reads are informative
+    prob_nucl1 = prob_nucl1 / sum(prob_nucl1)
+
+    # Estimate of discordance between forward and reverse:
+    concord = sum(like_f * like_r) / (sum(like_f) * sum(like_r))
+
+    return concord * prob_nucl1 + (1 - concord) * np.array(prior)
+
+
+def _get_probs_old(forward, reverse, num_forw, num_rev, prior_nucl,
+                   prior_prob=0.95):
     '''Get probabilities.'''
     prior = {nucl: (1 - prior_prob) / 3 for nucl in 'ACGT'}
     prior[prior_nucl] = prior_prob
