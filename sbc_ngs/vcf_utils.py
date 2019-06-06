@@ -287,16 +287,24 @@ def _get_probs(forward, reverse, num_forw, num_rev, prior_nucl):
     misprob_r = (sum(nr) - max(nr)) / \
         max(sum(nr), 1e-16)  # misread probability
 
-    like_f = binom.pmf(nf, num_forw, 1 - misprob_f)
-    like_r = binom.pmf(nr, num_rev, 1 - misprob_r)
+    like_f = np.array([_pmf(k, num_forw, 1 - misprob_f) for k in nf])
+    like_r = np.array([_pmf(k, num_rev, 1 - misprob_r) for k in nr])
 
     prob_nucl1 = prior_nucl2 * like_r * like_f  # Probs reads are informative
-    prob_nucl1 = prob_nucl1 / sum(prob_nucl1)
+    prob_nucl1 = prob_nucl1 / max(sum(prob_nucl1), 1e-16)
 
     # Estimate of discordance between forward and reverse:
     concord = sum(like_f * like_r) / (sum(like_f) * sum(like_r))
 
     return concord * prob_nucl1 + (1 - concord) * np.array(prior)
+
+
+def _pmf(k, n, p):
+    '''pmf.'''
+    try:
+        return max(binom.pmf(k, n, p), 1e-16)
+    except FloatingPointError:
+        return 0
 
 
 def _get_probs_old(forward, reverse, num_forw, num_rev, prior_nucl,
