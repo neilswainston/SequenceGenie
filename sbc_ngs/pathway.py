@@ -44,6 +44,8 @@ class PathwayAligner():
         # Backwards compatibility:
         self.__barcodes_df.rename(columns={'actual_ice_id': 'known_seq_id'},
                                   inplace=True)
+        self.__barcodes_df['known_seq_id'] = \
+            self.__barcodes_df['known_seq_id'].astype(str)
 
         # Index sequence / template files:
         for templ_filename in self.__seq_files.values():

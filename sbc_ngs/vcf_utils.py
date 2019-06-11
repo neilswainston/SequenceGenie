@@ -66,7 +66,7 @@ def vcf_to_df(vcf_filename):
                 else:
                     pass
             elif line.startswith('#'):
-                columns = line[1:].split()[:-1] + ['DATA']
+                columns = line[1:].split('\t')[:-1] + ['DATA']
             else:
                 data.append(line.split())
 
