@@ -19,9 +19,9 @@ class ResultsThread(Thread):
     def __init__(self, columns, barcodes_df, queue):
         self.__dfs = {}
 
-        self.__dfs['summary'] = barcodes_df
-        self.__dfs['summary'].set_index(['forward', 'reverse', 'barcode_type'],
-                                        inplace=True)
+        self.__dfs['raw_summary'] = barcodes_df
+        self.__dfs['raw_summary'].set_index(
+            ['forward', 'reverse', 'barcode_type'], inplace=True)
 
         # Initialise specific Dataframes:
         for name in ['mutations', 'nucleotides', 'indels', 'deletions',
@@ -45,7 +45,9 @@ class ResultsThread(Thread):
 
     def write(self, dir_name):
         '''Write result output files.'''
-        self.__update_summary()
+        self.__update_raw_summary()
+
+        self.__add_summary()
 
         for name, df in self.__dfs.items():
             df.to_csv(os.path.join(dir_name, name + '.csv'))
@@ -57,9 +59,9 @@ class ResultsThread(Thread):
     def __init_df(self, columns):
         '''Initialise a results dataframe.'''
         df = pd.concat([pd.DataFrame(columns=columns),
-                        self.__dfs['summary'].copy()],
+                        self.__dfs['raw_summary'].copy()],
                        sort=False)
-        df.index = self.__dfs['summary'].index
+        df.index = self.__dfs['raw_summary'].index
         return df
 
     def __update_df(self, task):
@@ -67,8 +69,8 @@ class ResultsThread(Thread):
         name, val, col_id, row_ids = task
         self.__dfs[name][col_id].loc[row_ids[0], row_ids[1], row_ids[2]] = val
 
-    def __update_summary(self):
-        '''Update summary.'''
+    def __update_raw_summary(self):
+        '''Update raw summary.'''
         self.__dfs['identity'].fillna(0, inplace=True)
 
         numerical_df = self.__dfs['identity'].copy()
@@ -79,20 +81,40 @@ class ResultsThread(Thread):
         numerical_df = numerical_df.select_dtypes(include=[np.float])
 
         if not numerical_df.empty:
-            self.__dfs['summary']['matched_seq_id'] = \
+            self.__dfs['raw_summary']['matched_seq_id'] = \
                 numerical_df.idxmax(axis=1)
-            self.__dfs['summary']['identity'] = numerical_df.max(axis=1)
+            self.__dfs['raw_summary']['identity'] = numerical_df.max(axis=1)
 
             for name, df in self.__dfs.items():
-                if name != 'summary':
-                    self.__dfs['summary'][name] = \
+                if name != 'raw_summary':
+                    self.__dfs['raw_summary'][name] = \
                         df.lookup(df.index,
-                                  self.__dfs['summary']['matched_seq_id'])
+                                  self.__dfs['raw_summary']['matched_seq_id'])
 
             # Remove spurious unidentified entries:
-            self.__dfs['summary'] = \
-                self.__dfs['summary'][self.__dfs['summary']['identity'] != 0]
+            self.__dfs['raw_summary'] = \
+                self.__dfs['raw_summary'][self.__dfs['raw_summary']
+                                          ['identity'] != 0]
 
             # Sort:
-            self.__dfs['summary'] = \
-                self.__dfs['summary'].sort_values('identity', ascending=False)
+            self.__dfs['raw_summary'] = \
+                self.__dfs['raw_summary'].sort_values(
+                    'identity', ascending=False)
+
+    def __add_summary(self):
+        '''Add summary.'''
+        summary_df = self.__dfs['raw_summary'][
+            ['well', 'mutations', 'deletions', 'depths']]
+
+        summary_df = summary_df.iloc[
+            summary_df.index.get_level_values('barcode_type') == 'sum']
+
+        summary_df.index = summary_df.index.droplevel('barcode_type')
+
+        summary_df['mutations'] = summary_df['mutations'].apply(
+            lambda x: x if x else np.nan)
+
+        summary_df['deletions'] = summary_df['deletions'].apply(
+            lambda x: x if x else np.nan)
+
+        self.__dfs['summary'] = summary_df
