@@ -103,18 +103,37 @@ class ResultsThread(Thread):
 
     def __add_summary(self):
         '''Add summary.'''
-        summary_df = self.__dfs['raw_summary'][
-            ['well', 'mutations', 'deletions', 'depths']]
+        self.__dfs['summary'] = add_summary(self.__dfs['raw_summary'])
 
-        summary_df = summary_df.iloc[
-            summary_df.index.get_level_values('barcode_type') == 'sum']
 
-        summary_df.index = summary_df.index.droplevel('barcode_type')
+def add_summary(raw_summary_df):
+    '''Add summary.'''
+    summary_df = raw_summary_df[['well', 'known_seq_id', 'matched_seq_id',
+                                 'identity', 'mutations', 'deletions',
+                                 'depths']]
 
-        summary_df['mutations'] = summary_df['mutations'].apply(
-            lambda x: x if x else np.nan)
+    summary_df = summary_df.iloc[
+        summary_df.index.get_level_values('barcode_type') == 'sum']
 
-        summary_df['deletions'] = summary_df['deletions'].apply(
-            lambda x: x if x else np.nan)
+    summary_df.index = summary_df.index.droplevel('barcode_type')
 
-        self.__dfs['summary'] = summary_df
+    summary_df['mutations'] = summary_df['mutations'].apply(
+        lambda x: x if x and x != '[]' else np.nan)
+
+    summary_df['deletions'] = summary_df['deletions'].apply(
+        lambda x: x if x and x != '[]' else np.nan)
+
+    return summary_df
+
+
+def main(args):
+    '''main method.'''
+    filename = args[0]
+    raw_summary_df = pd.read_csv(filename, index_col=[0, 1, 2])
+    summary_df = add_summary(raw_summary_df)
+    summary_df.to_csv(filename.replace('raw_summary.csv', 'summary.csv'))
+
+
+if __name__ == '__main__':
+    import sys
+    main(sys.argv[1:])
