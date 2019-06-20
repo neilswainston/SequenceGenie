@@ -1,9 +1,9 @@
-docker run -d -v $1/data:/data -v $1/results:/results sbc-ngs \
+docker run -d -v $1/data:/data -v $1/seqs:/seqs -v $1/results:/results sbc-ngs \
 pathway \
 /results \
 /data \
+$2 \
+$3 \
 $4 \
-$5 \
-$6 \
 0 \
-data/sample/SBC003382.fasta
+/seqs/
