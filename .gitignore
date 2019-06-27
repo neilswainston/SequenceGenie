@@ -107,5 +107,5 @@ venv.bak/
 /.pydevproject
 /**/.DS_Store
 /out/
-/example/seqs/*.fasta.*
-/example/results/
+/example/**/*.fasta.*
+/example/**/results/
