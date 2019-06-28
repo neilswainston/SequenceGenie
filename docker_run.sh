@@ -4,6 +4,6 @@ pathway \
 /data \
 $2 \
 $3 \
-$4 \
+8 \
 0 \
 /seqs/

@@ -9,5 +9,5 @@ gaattcaaaagatcttttaagaag \
 ttactcgagtttggatcc \
 $4 \
 $5 \
-$6 \
+8 \
 0
