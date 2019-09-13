@@ -1,4 +1,4 @@
-# sbc-ngs
+# SequenceGenie
 
 These algorithms are tuned to exploit multiple processors. Running the code with
 multiple processors will result in a significant performance improvement.
