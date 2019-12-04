@@ -7,6 +7,7 @@ All rights reserved.
 '''
 # pylint: disable=invalid-name
 # pylint: disable=too-many-arguments
+# pylint: disable=too-many-locals
 # pylint: disable=wrong-import-order
 from collections import OrderedDict
 import os.path
@@ -85,7 +86,7 @@ def get_barcodes(filename):
 
 
 def demultiplex(barcodes, in_dir, min_length, max_read_files, out_dir,
-                tolerance, num_threads, search_len=48):
+                tolerance, num_threads, indiv_strand=True, search_len=48):
     '''Bin sequences according to barcodes.'''
     max_barcode_len = max([len(barcode)
                            for pair in barcodes
@@ -106,7 +107,8 @@ def demultiplex(barcodes, in_dir, min_length, max_read_files, out_dir,
                                                  tolerance,
                                                  idx,
                                                  len(filenames),
-                                                 write_queue))
+                                                 write_queue,
+                                                 indiv_strand))
                for idx, fle in enumerate(filenames)]
 
     for res in results:
@@ -132,7 +134,8 @@ def _format_barcodes(barcodes):
 
 
 def _bin_seqs(reads_filename, min_length, max_barcode_len, search_len,
-              barcodes, tolerance, idx, num_read_files, write_queue):
+              barcodes, tolerance, idx, num_read_files, write_queue,
+              indiv_strand):
     '''Bin a batch of sequences.'''
     barcode_seqs = 0
 
@@ -142,7 +145,7 @@ def _bin_seqs(reads_filename, min_length, max_barcode_len, search_len,
         if seq:
             for pairs in barcodes:
                 if _check_seq(seq, max_barcode_len, search_len, pairs,
-                              tolerance, write_queue):
+                              tolerance, write_queue, indiv_strand):
                     barcode_seqs += 1
                     break
 
@@ -150,7 +153,7 @@ def _bin_seqs(reads_filename, min_length, max_barcode_len, search_len,
 
 
 def _check_seq(seq, max_barcode_len, search_len, pairs,
-               tolerance, write_queue, indiv_strand=True):
+               tolerance, write_queue, indiv_strand):
     '''Check sequence against barcode sequences.'''
     seq_len = min(max_barcode_len + search_len, len(seq))
     seq_start = list(seq.seq[:seq_len])
