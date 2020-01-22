@@ -14,7 +14,7 @@ import os.path
 from threading import Thread
 
 from Bio import Seq, SeqIO
-
+from synbiochem.utils import io_utils
 import multiprocessing as mp
 import pandas as pd
 from sbc_ngs import reads, utils
@@ -97,7 +97,7 @@ def demultiplex(barcodes, in_dir, min_length, max_read_files, out_dir,
     read_thread = ReadThread(write_queue, out_dir)
     read_thread.start()
 
-    filenames = reads.get_filenames(in_dir, max_read_files)
+    filenames = io_utils.get_filenames(in_dir, max_read_files)
 
     results = [pool.apply_async(_bin_seqs, args=(fle,
                                                  min_length,

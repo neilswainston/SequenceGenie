@@ -5,24 +5,9 @@ All rights reserved.
 
 @author: neilswainston
 '''
-import os
 from os.path import splitext
 
 from Bio import SeqIO
-
-
-def get_filenames(reads_filename, max_read_files=1e16):
-    '''Get reads filename.'''
-    filenames = []
-
-    if os.path.isdir(reads_filename):
-        for filename in os.listdir(os.path.abspath(reads_filename)):
-            filenames.append(os.path.join(reads_filename, filename))
-
-        return filenames[:max_read_files]
-
-    # else:
-    return [reads_filename]
 
 
 def get_reads(filename, min_length):
