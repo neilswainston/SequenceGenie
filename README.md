@@ -12,7 +12,7 @@ To run sbc-ngs from pre-compiled FASTA files of target sequences, run:
 
 1. `bash docker_build.sh`
 2. `bash docker_run.sh [FULL_PATH_TO_DATA_DIRECTORY] [MIN_SEQ_LEN] [MAX_SEQ_FILES]`
-(e.g. `bash docker_run.sh /Users/username/sbc-ngs/example/fasta 1000 128`
+(e.g. `bash docker_run.sh /Users/username/SequenceGenie/example/fasta 1000 128`
 
 The value `[MIN_SEQ_LEN]` corresponds to the minimum sequence length of a
 data read to be considered in the analysis. Depending upon the length of the
@@ -49,4 +49,4 @@ To run sbc-ngs from target sequences held in JBEI-ICE, run:
 
 1. `bash docker_build.sh`
 2. `bash docker_run_ice.sh [TARGET_DIRECTORY] [ICE_USERNAME] [ICE_PASSWORD] [MIN_SEQ_LEN] [MAX_SEQ_FILES]`
-(e.g. `bash docker_run_ice.sh /Users/username/sbc-ngs/example/ice user@mylab.com password 1000 128`
+(e.g. `bash docker_run_ice.sh /Users/username/SequenceGenie/example/ice user@mylab.com password 1000 128`
